@@ -76,8 +76,8 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <LinkIncremental>true</LinkIncremental>
-    <IncludePath>S:\软件安全设计\Detours-4.0.1\include;$(IncludePath)</IncludePath>
-    <LibraryPath>S:\软件安全设计\Detours-4.0.1\lib.X86;$(LibraryPath)</LibraryPath>
+    <IncludePath>S:\softwareSecurityTask\lib\Detours-4.0.1\lib.X86;$(IncludePath)</IncludePath>
+    <LibraryPath>S:\softwareSecurityTask\lib\Detours-4.0.1\include;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>

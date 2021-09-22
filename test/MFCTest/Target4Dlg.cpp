@@ -1,4 +1,5 @@
 ﻿
+
 // Target4Dlg.cpp: 实现文件
 //
 
@@ -8,6 +9,11 @@
 #include "Target4Dlg.h"
 #include "afxdialogex.h"
 #include <exception>
+#include <WS2tcpip.h>
+
+#define _WINSOCK_DEPRECATED_NO_WARNINGS
+#include<winsock.h>
+#pragma comment(lib,"ws2_32.lib")
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -73,6 +79,7 @@ BEGIN_MESSAGE_MAP(CTarget4Dlg, CDialogEx)
 	ON_BN_CLICKED(IDC_BUTTON5, &CTarget4Dlg::OnBnClickedButton5)
 	ON_BN_CLICKED(ID_BUTTON6, &CTarget4Dlg::OnBnClickedButton6)
 	ON_BN_CLICKED(IDC_BUTTON7, &CTarget4Dlg::OnBnClickedButton7)
+	ON_BN_CLICKED(IDC_BUTTON8, &CTarget4Dlg::OnBnClickedButton8)
 END_MESSAGE_MAP()
 
 
@@ -289,4 +296,72 @@ void CTarget4Dlg::OnBnClickedButton7()
 	LONG lRet = RegCreateKeyExA(hRoot, szSubKey, 0, NULL,
 		REG_OPTION_NON_VOLATILE, KEY_ALL_ACCESS, NULL, &hKey, &dwDisposition);
 	wchar_t valueName[1000];
+}
+
+
+void CTarget4Dlg::OnBnClickedButton8()
+{
+	//定义长度变量
+	int send_len = 0;
+	int recv_len = 0;
+	//定义发送缓冲区和接受缓冲区
+	char send_buf[100] = "Hello World";
+	char recv_buf[100];
+	//定义服务端套接字，接受请求套接字
+	SOCKET s_server;
+	//服务端地址客户端地址
+	SOCKADDR_IN server_addr;
+
+	WORD w_req = MAKEWORD(2, 2);//版本号
+	WSADATA wsadata;
+	int err;
+	err = WSAStartup(w_req, &wsadata);
+	if (err != 0) {
+		return;
+	}
+	else {
+		CallMsgBox(L"初始化套接字库成功！");
+	}
+	//检测版本号
+	if (LOBYTE(wsadata.wVersion) != 2 || HIBYTE(wsadata.wHighVersion) != 2) {
+		CallMsgBox(L"套接字库版本号不符！");
+		WSACleanup();
+		return;
+	}
+	else {
+		CallMsgBox(L"套接字库版本正确！");
+	}
+
+	//填充服务端信息
+	server_addr.sin_family = AF_INET;
+	inet_pton(AF_INET,"127.0.0.1", &server_addr.sin_addr.S_un.S_addr);
+	server_addr.sin_port = htons(1234);
+	//创建套接字
+	s_server = socket(AF_INET, SOCK_STREAM, 0);
+	if (connect(s_server, (SOCKADDR*)&server_addr, sizeof(SOCKADDR)) == SOCKET_ERROR) {
+		CallMsgBox(L"服务器连接失败！");
+		WSACleanup();
+		return;
+	}
+	else {
+		CallMsgBox(L"服务器连接成功！");
+	}
+	//发送,接收数据
+	send_len = send(s_server, send_buf, strlen(send_buf)+1, 0);
+	if (send_len < 0) {
+		CallMsgBox(L"发送失败！");
+	}
+	recv_len = recv(s_server, recv_buf, 100, 0);
+	if (recv_len < 0) {
+		CallMsgBox(L"接受失败！");
+	}
+	else {
+		CallMsgBox(L"服务端信息已接收");
+	}
+
+
+	//关闭套接字
+	closesocket(s_server);
+	//释放DLL资源
+	WSACleanup();
 }

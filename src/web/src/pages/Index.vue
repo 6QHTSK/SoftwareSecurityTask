@@ -242,7 +242,7 @@ export default defineComponent({
   data: () => {
     return {
       currentTime: new Date(),
-      targetFile: 'S:\\softwareSecurityTask\\test\\Target4\\Debug\\Target4.exe',
+      targetFile: 'S:\\softwareSecurityTask\\test\\MFCTest\\Debug\\Target4.exe',
       timer: null,
       startTrace: false,
       firstTrace: false,
@@ -313,6 +313,10 @@ export default defineComponent({
         {
           "name": "注册表",
           "label": "Regedit"
+        },
+        {
+          "name": "套接字",
+          "label": "Socket"
         }
       ],
       infoTraceCount: {
@@ -321,12 +325,14 @@ export default defineComponent({
         "Heap": 0,
         "File": 0,
         "Regedit": 0,
+        "Socket": 0,
       },
       warningTraceCount: {
         "HookFunc": 0,
         "Heap": 0,
         "File": 0,
         "Regedit": 0,
+        "Socket": 0,
       },
       icons: {
         "HookFunc": "attach_file",
@@ -334,6 +340,7 @@ export default defineComponent({
         "Heap": "clear_all",
         "File": "folder",
         "Regedit": "app_registration",
+        "Socket": "sync_alt"
       },
       filterSwitch: {
         "Main": true,
@@ -342,6 +349,7 @@ export default defineComponent({
         "Heap": false,
         "File": false,
         "Regedit": false,
+        "Socket": false,
       },
       events: [
         /*{
@@ -401,13 +409,15 @@ export default defineComponent({
                 "Heap": 0,
                 "File": 0,
                 "Regedit": 0,
+                "Socket": 0,
               },
               warningTraceCount: {
                 "HookFunc": 0,
                 "Heap": 0,
                 "File": 0,
                 "Regedit": 0,
-              }
+                "Socket": 0,
+              },
             }
           )
           that.changeViewEvent(this.eventCount)

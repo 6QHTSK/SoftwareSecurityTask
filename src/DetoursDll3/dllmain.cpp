@@ -73,9 +73,9 @@ static LSTATUS(WINAPI* OldRegCloseKey)(HKEY hKey) = RegCloseKey;
 static LSTATUS(WINAPI* OldRegQueryValueExA)(HKEY hKey, LPCSTR lpValueName, LPDWORD lpReserved, LPDWORD lpType, LPBYTE lpData, LPDWORD lpcbData) = RegQueryValueExA;
 static LSTATUS(WINAPI* OldRegSetValueExA)(HKEY hKey, LPCSTR lpValueName, DWORD Reserved, DWORD dwType, const BYTE* lpData, DWORD cbData) = RegSetValueExA;
 
+static unsigned int(WSAAPI* Oldsocket)(int af,int type,int protocol) = socket;
 static int(WSAAPI* OldWSAStartup)(WORD wVersionRequired, LPWSADATA lpWSAData) = WSAStartup;
 static int(WSAAPI* Oldlisten)(SOCKET s, int backlog) = listen;
-static unsigned int(WSAAPI* Oldaccept)(SOCKET s, sockaddr* addr, int* addrlen) = accept;
 static int(WSAAPI* Oldconnect)(SOCKET s, const sockaddr* name, int namelen) = connect;
 static int(WSAAPI* Oldrecv)(SOCKET s, char* buf, int len, int flags) = recv;
 static int(WSAAPI* Oldsend)(SOCKET s, const char* buf, int len, int flags) = send;
@@ -106,6 +106,7 @@ extern "C" __declspec(dllexport) LSTATUS WINAPI NewRegQueryValueExA(HKEY hKey, L
 extern "C" __declspec(dllexport) LSTATUS WINAPI NewRegSetValueExA(HKEY hKey, LPCSTR lpValueName, DWORD Reserved, DWORD dwType, const BYTE * lpData, DWORD cbData);
 
 // Only Client
+extern "C" __declspec(dllexport) SOCKET WSAAPI Newsocket(int af, int type, int protocol);
 extern "C" __declspec(dllexport) int WSAAPI NewWSAStartup(WORD wVersionRequired, LPWSADATA lpWSAData);
 extern "C" __declspec(dllexport) int WSAAPI Newconnect(SOCKET s, const sockaddr* name, int namelen);
 extern "C" __declspec(dllexport) int WSAAPI Newrecv(SOCKET s, char* buf, int len, int flags);
@@ -137,6 +138,7 @@ void DisableDetours() {
     DetourDetach(&(PVOID&)OldRegSetValueExA, NewRegSetValueExA);
     DetourDetach(&(PVOID&)OldRegCloseKey, NewRegCloseKey);
 
+    DetourDetach(&(PVOID&)Oldsocket, Newsocket);
     DetourDetach(&(PVOID&)OldWSAStartup, NewWSAStartup);
     DetourDetach(&(PVOID&)Oldconnect, Newconnect);
     DetourDetach(&(PVOID&)Oldrecv, Newrecv);
@@ -169,6 +171,7 @@ void EnableDetours() {
     DetourAttach(&(PVOID&)OldRegSetValueExA, NewRegSetValueExA);
     DetourAttach(&(PVOID&)OldRegCloseKey, NewRegCloseKey);
 
+    DetourAttach(&(PVOID&)Oldsocket, Newsocket);
     DetourAttach(&(PVOID&)OldWSAStartup, NewWSAStartup);
     DetourAttach(&(PVOID&)Oldconnect, Newconnect);
     DetourAttach(&(PVOID&)Oldrecv, Newrecv);
@@ -190,7 +193,7 @@ void SendPipe(const char* eventID, json &event) {
         req["event"] = event;
         req["pid"] = GetCurrentProcessId();
         req["threadID"] = GetCurrentThreadId();
-        if (strcmp(eventID, "File") == 0) {
+        if (strcmp(eventID, "File") == 0 || strcmp(eventID, "HookFunc") == 0) {
             req["file"] = currentFileName;
             req["cwd"] = currentWorkDir;
         }
@@ -555,14 +558,32 @@ extern "C" __declspec(dllexport) LSTATUS WINAPI NewRegSetValueExA(HKEY hKey, LPC
 
 // WebSocket
 
+//socket 代替函数
+extern "C" __declspec(dllexport) SOCKET WSAAPI Newsocket(int af, int type, int protocol) {
+    auto socket = Oldsocket(af,type,protocol);
+    DisableDetours();
+    json info;
+    info["Operation"] = "socket";
+    info["af"] = af;
+    info["type"] = type;
+    info["protocol"] = protocol;
+    info["socket"] = socket;
+    SendPipe("Socket", info);
+    EnableDetours();
+    return socket;
+}
+
 // WSAStartup 代替函数
 extern "C" __declspec(dllexport) int WSAAPI NewWSAStartup(WORD wVersionRequired, LPWSADATA lpWSAData) {
     auto status = OldWSAStartup(wVersionRequired, lpWSAData);
     DisableDetours();
     json info;
     info["Operation"] = "WSAStartup";
-    info["wVersionRequired"] = wVersionRequired;
+    info["wVersionRequiredPrimary"] = LOBYTE(wVersionRequired);
+    info["wVersionRequiredSecondary"] = HIBYTE(wVersionRequired);
     info["lpWSAData"] = int(lpWSAData);
+    info["wVersionPrimary"] = LOBYTE(lpWSAData->wVersion);
+    info["wVersionSecondary"] = HIBYTE(lpWSAData->wVersion);
     info["status"] = status;
     SendPipe("Socket", info);
     EnableDetours();
@@ -576,10 +597,13 @@ extern "C" __declspec(dllexport) int WSAAPI Newconnect(SOCKET s, const sockaddr 
     json info;
     info["Operation"] = "connect";
     info["s"] = s;
-    auto sockaddr = (SOCKADDR_IN*)name;
-    info["sin_family"] = sockaddr->sin_family;
-    info["sin_port"] = sockaddr->sin_port;
-    info["sin_addr"] = sockaddr->sin_addr.S_un.S_addr;
+    auto sockaddr = (SOCKADDR*)name;
+    info["sa_family"] = sockaddr->sa_family;
+    if (sockaddr->sa_family == AF_INET) {
+        info["sin_port"] = ntohs(((SOCKADDR_IN*)sockaddr)->sin_port);
+        info["sin_addr"] = ntohl(((SOCKADDR_IN*)sockaddr)->sin_addr.s_addr);
+    }
+    info["sockaddr"] = int(sockaddr);
     info["namelen"] = namelen;
     info["status"] = status;
     SendPipe("Socket", info);
@@ -595,6 +619,9 @@ extern "C" __declspec(dllexport) int WSAAPI Newrecv(SOCKET s, char* buf, int len
     info["Operation"] = "recv";
     info["s"] = s;
     info["buf"] = int(buf);
+    if (buf != NULL) {
+        info["bufValue"] = base64_encode((const unsigned char*)buf, len);
+    }
     info["len"] = len;
     info["flags"] = flags;
     info["status"] = status;
@@ -611,6 +638,9 @@ extern "C" __declspec(dllexport) int WSAAPI Newsend(SOCKET s, const char* buf, i
     info["Operation"] = "send";
     info["s"] = s;
     info["buf"] = int(buf);
+    if (buf != NULL) {
+        info["bufValue"] = base64_encode((const unsigned char*)buf, len);
+    }
     info["len"] = len;
     info["flags"] = flags;
     info["status"] = status;
@@ -637,7 +667,7 @@ extern "C" __declspec(dllexport) int WSAAPI NewWSACleanup() {
     auto status = OldWSACleanup();
     DisableDetours();
     json info;
-    info["Operation"] = "closesocket";
+    info["Operation"] = "WSACleanup";
     info["status"] = status;
     SendPipe("Socket", info);
     EnableDetours();
@@ -652,7 +682,8 @@ BOOL APIENTRY DllMain( HMODULE hModule,
                      )
 {
     BOOL bRet;
-    json info;
+    json info,infoEnd;
+    struct _stat buf;
 
     TCHAR exeFullName[MAX_PATH];
     GetModuleFileName(NULL, exeFullName, MAX_PATH);
@@ -683,6 +714,12 @@ BOOL APIENTRY DllMain( HMODULE hModule,
         }
 
         info["Operation"] = "StartTrace";
+        if (_stat(currentFileName.c_str(), &buf) == 0) {
+            info["st_size"] = buf.st_size;
+            info["st_atime"] = buf.st_atime;
+            info["st_mtime"] = buf.st_mtime;
+            info["st_ctime"] = buf.st_ctime;
+        }
         SendPipe("HookFunc", info);
 
         EnableDetours();
@@ -694,8 +731,8 @@ BOOL APIENTRY DllMain( HMODULE hModule,
     case DLL_PROCESS_DETACH:
         DisableDetours();
 
-        info["Operation"] = "StopTrace";
-        SendPipe("HookFunc", info);
+        infoEnd["Operation"] = "StopTrace";
+        SendPipe("HookFunc", infoEnd);
 
         DetourTransactionCommit();
         CloseHandle(hPipe);
