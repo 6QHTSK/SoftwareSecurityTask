@@ -2,7 +2,7 @@
   "name": "detour",
   "version": "0.0.1",
   "description": "A Quasar Framework app",
-  "productName": "Quasar App",
+  "productName": "异常行为监测系统",
   "author": "6QHTSK <862647431@qq.com>",
   "private": true,
   "scripts": {
@@ -22,6 +22,8 @@
   "devDependencies": {
     "@babel/eslint-parser": "^7.13.14",
     "@quasar/app": "^3.0.0",
+    "electron": "^15.0.0",
+    "electron-packager": "^15.4.0",
     "eslint": "^7.14.0",
     "eslint-config-prettier": "^8.1.0",
     "eslint-plugin-vue": "^7.0.0",

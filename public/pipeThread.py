@@ -9,12 +9,14 @@ import json
 pid = 0
 eventUID = 1
 
+
 def getPid():
     global pid
     return pid
 
+
 def pipeThread(sio):
-    global pid,eventUID
+    global pid, eventUID
     pid = 0
     PIPE_NAME = r'\\.\pipe\mypipe'
     PIPE_BUFFER_SIZE = 65535
@@ -26,9 +28,6 @@ def pipeThread(sio):
                                            PIPE_BUFFER_SIZE, 500, None)
     event_handler = Handler()
     eventUID = 1
-    #sio.emit('DetourEvent', {
-    #         'data': {"id": eventUID, "eventID": "HookFunc", "event": {"Operation": "StartTrace","description":""}}})
-    #eventUID = eventUID + 1
     try:
         while True:
             rawjson = dict()
@@ -40,16 +39,16 @@ def pipeThread(sio):
                 if data is None or len(data) < 2:
                     continue
 
-                #print('receive msg:', data)
-                #print(str(data[1]));
+                # print('receive msg:', data)
+                # print(str(data[1]));
 
                 rawstr = data[1].decode()
                 rawstr = rawstr.replace("\x00", "")
-                #rawstr = rawstr.replace("\\\\","\\")
+                # rawstr = rawstr.replace("\\\\","\\")
                 rawjson = json.loads(rawstr)
                 if pid == 0:
                     pid = rawjson["pid"]
-                #print(rawjson)
+                # print(rawjson)
                 rawjson['warnings'] = []
                 rawjson['warningLevel'] = 0
                 rawjson['description'] = ""
@@ -58,12 +57,10 @@ def pipeThread(sio):
                 eventUID = eventUID + 1
                 event_handler.event_handle(rawjson)
                 sio.emit('DetourEvent', {'data': rawjson})
-                
+
             except BaseException as e:
-                #rawjson = {"id":eventUID, "eventID":"HookFunc","warnings" : [], "warningLevel" : 0, "event":{"Operation":"StopTrace","description":""}}
                 print("exception:", e)
                 event_handler.fin_event_handle(rawjson)
-                #sio.emit('DetourEvent', {'data': rawjson})
                 break
     finally:
         try:

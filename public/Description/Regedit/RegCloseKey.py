@@ -1,4 +1,6 @@
-from utils import convertEqual,convertDict,convertResult
+from utils import convertEqual, convertDict, formatErrorCode
+
+
 def description(event):
     info = event["event"]
     event["eventDescription"] = {
@@ -8,7 +10,7 @@ def description(event):
         },
         "return": {
             "description": "执行结果 [系统错误代码]",
-            "value": convertResult(info["status"], True)
+            "value": formatErrorCode(info["status"])
         }
     }
     event["document"] = "https://docs.microsoft.com/en-us/windows/win32/api/winreg/nf-winreg-regclosekey"

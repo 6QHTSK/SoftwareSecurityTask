@@ -1,4 +1,4 @@
-from utils import convertResult, toMemorySize, to32Hex
+from utils import convertResult, toMemorySize, to32Hex, formatErrorCode
 
 
 def checkReturn(status):
@@ -33,5 +33,12 @@ def description(event, socketList):
             "value": checkReturn(info["status"])
         }
     }
+    if "errorCode" in info:
+        event["eventDescription"].update({
+            "errorCode": {
+                "description": "错误代码",
+                "value": formatErrorCode(info["errorCode"])
+            }
+        })
     event["description"] = "套接字接受来自 {} 的信息".format(event["eventDescription"]["s"]["value"][-1])
     event["document"] = "https://docs.microsoft.com/en-us/windows/win32/api/winsock/nf-winsock-recv"

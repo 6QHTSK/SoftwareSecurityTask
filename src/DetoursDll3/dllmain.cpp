@@ -36,7 +36,7 @@ void trace(HANDLE hHandle) {
 void detrace(HANDLE hHandle) {
     for (int i = 0; i < 10000; i++) {
         if (Trace[i] == int(hHandle))
-            Trace[i] = -Trace[i];
+            Trace[i] = -1;
         if (Trace[i] == 0)
             break;
     }
@@ -50,6 +50,18 @@ BOOL isTrace(HANDLE hHandle) {
             break;
     }
     return FALSE;
+}
+
+void formatError(DWORD errorcode, LPSTR buffer) {
+    FormatMessageA(
+        FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM,
+        NULL,
+        errorcode,
+        0,
+        buffer,
+        0,
+        NULL
+    );
 }
 
 static int (WINAPI* OldMessageBoxA)(_In_opt_ HWND hWnd, _In_opt_ LPCSTR lpText, _In_opt_ LPCSTR lpCaption, _In_ UINT uType) = MessageBoxA;
@@ -114,8 +126,6 @@ extern "C" __declspec(dllexport) int WSAAPI Newsend(SOCKET s, const char* buf, i
 extern "C" __declspec(dllexport) int WSAAPI Newclosesocket(SOCKET s);
 extern "C" __declspec(dllexport) int WSAAPI NewWSACleanup();
 
-extern "C" __declspec(dllexport) void* _cdecl NewMemcpy(void* destination, const void* source, size_t num);
-
 void DisableDetours() {
     DetourDetach(&(PVOID&)OldMessageBoxA, NewMessageBoxA);
 
@@ -146,7 +156,7 @@ void DisableDetours() {
     DetourDetach(&(PVOID&)Oldclosesocket, Newclosesocket);
     DetourDetach(&(PVOID&)OldWSACleanup, NewWSACleanup);
 
-    //DetourDetach(&(PVOID&)OldMemcpy, NewMemcpy);
+    DetourTransactionCommit();
 }
 
 void EnableDetours() {
@@ -179,7 +189,7 @@ void EnableDetours() {
     DetourAttach(&(PVOID&)Oldclosesocket, Newclosesocket);
     DetourAttach(&(PVOID&)OldWSACleanup, NewWSACleanup);
 
-    //DetourAttach(&(PVOID&)OldMemcpy, NewMemcpy);
+    DetourTransactionCommit();
 }
 
 void SendPipe(const char* eventID, json &event) {
@@ -239,8 +249,11 @@ extern "C" __declspec(dllexport)HANDLE WINAPI NewHeapCreate(DWORD fIOptions, SIZ
     info["hHeap"] = int(hHeap);
     info["fIOptions"] = fIOptions;
     info["dwInitialSize"] = dwInitialSize;
-    info["dwMaxiumSize"] = dwMaximumSize;
+    info["dwMaximumSize"] = dwMaximumSize;
     info["DefaultHeap"] = int(GetProcessHeap());
+    if (hHeap == NULL) {
+        info["errorCode"] = GetLastError();
+    }
     SendPipe("Heap", info);
     EnableDetours();
     return hHeap;
@@ -248,13 +261,18 @@ extern "C" __declspec(dllexport)HANDLE WINAPI NewHeapCreate(DWORD fIOptions, SIZ
 
 // HeapDestroy 代替函数
 extern "C" __declspec(dllexport)BOOL WINAPI NewHeapDestroy(HANDLE hHeap) {
-    auto result = OldHeapDestroy(hHeap);
     DisableDetours();
-    detrace(hHeap);
     json info;
+    BOOL result;
+    DWORD flags = 0;
+    result = OldHeapDestroy(hHeap);
+    detrace(hHeap);
+    info["return"] = result;
+    if (result == 0) {
+        info["errorCode"] = GetLastError();
+    }
     info["Operation"] = "HeapDestroy";
     info["hHeap"] = int(hHeap);
-    info["return"] = result;
     SendPipe("Heap", info);
     EnableDetours();
     return result;
@@ -264,7 +282,8 @@ extern "C" __declspec(dllexport)BOOL WINAPI NewHeapDestroy(HANDLE hHeap) {
 // HeapAlloc 代替函数
 extern "C" __declspec(dllexport)LPVOID WINAPI NewHeapAlloc(HANDLE hHeap, DWORD dwFlags, SIZE_T dwBytes) {
     DisableDetours();
-    auto address = OldHeapAlloc(hHeap, dwFlags, dwBytes);
+    LPVOID address = OldHeapAlloc(hHeap, dwFlags, dwBytes);
+    DWORD flags = 0;
     if (!isTrace(hHeap)) {
         EnableDetours();
         return address;
@@ -281,32 +300,28 @@ extern "C" __declspec(dllexport)LPVOID WINAPI NewHeapAlloc(HANDLE hHeap, DWORD d
 
 // HeapFree 代替函数
 extern "C" __declspec(dllexport)BOOL WINAPI NewHeapFree(HANDLE hHeap, DWORD dwFlags, _Frees_ptr_opt_ LPVOID lpMem) {
-    auto result = OldHeapFree(hHeap, dwFlags, lpMem);
     DisableDetours();
+    BOOL result;
+    json info;
+    DWORD flags = 0;
     if (!isTrace(hHeap)) {
         EnableDetours();
-        return result;
+        return OldHeapFree(hHeap, dwFlags, lpMem);
     }// TODO: 解决默认堆上的噪音问题
-    json info;
+    if (HeapValidate(hHeap, 0, lpMem) != 0) {
+        result = OldHeapFree(hHeap, dwFlags, lpMem);
+        if (result == 0) {
+            info["errorCode"] = GetLastError();
+        }
+    }
+    else {
+        result = 0;
+    }
     info["Operation"] = "HeapFree";
     info["hHeap"] = int(hHeap);
     info["dwFlags"] = dwFlags;
     info["lpMem"] = int(lpMem);
     info["return"] = result;
-    SendPipe("Heap", info);
-    EnableDetours();
-    return result;
-}
-
-extern "C" __declspec(dllexport) void* _cdecl NewMemcpy(void* destination, const void* source, size_t num) {
-    auto result = OldMemcpy(destination,source,num);
-    DisableDetours();
-    json info;
-    info["Operation"] = "memcpy";
-    info["destiantion"] = int(destination);
-    info["source"] = int(source);
-    info["num"] = num;
-    info["return"] = int(result);
     SendPipe("Heap", info);
     EnableDetours();
     return result;
@@ -332,6 +347,9 @@ extern "C" __declspec(dllexport) HANDLE WINAPI NewCreateFileA(LPCSTR lpFileName,
     WCHAR FileName[MAX_PATH];
     info["pathSuccess"] = GetFinalPathNameByHandle(handle, FileName, MAX_PATH, 0);
     info["path"] = (char*)(CW2A(FileName) + 4);   // 删除 \\?\ 符号
+    if (handle == INVALID_HANDLE_VALUE) {
+        info["errorCode"] = GetLastError();
+    }
     SendPipe("File", info);
     trace(handle);
     EnableDetours();
@@ -348,6 +366,9 @@ extern "C" __declspec(dllexport) HFILE WINAPI NewOpenFile(LPCSTR lpFileName, LPO
     info["lpReOpenBuff"] = int(lpReOpenBuff);
     info["uStyle"] = uStyle;
     info["hFile"] = hfile;
+    if (hfile == HFILE_ERROR) {
+        info["errorCode"] = GetLastError();
+    }
     SendPipe("File", info);
     EnableDetours();
     return hfile;
@@ -367,7 +388,6 @@ extern "C" __declspec(dllexport) BOOL WINAPI NewWriteFile(HANDLE hFile, LPCVOID 
     else
         info["path"] = "";
     info["lpBuffer"] = int(lpBuffer);
-    //base64::encode(lpBuffer,)
     info["nNumberOfBytesToWrite"] = nNumberOfBytesToWrite;
     info["lpNumberOfBytesWritten"] = int(lpNumberOfBytesWritten);
     if (lpNumberOfBytesWritten != NULL) {
@@ -377,7 +397,7 @@ extern "C" __declspec(dllexport) BOOL WINAPI NewWriteFile(HANDLE hFile, LPCVOID 
     info["lpOverlapped"] = int(lpOverlapped);
     info["return"] = result;
     if (result == FALSE) {
-        info["Error"] = GetLastError();
+        info["errorCode"] = GetLastError();
     }
     SendPipe("File", info);
     EnableDetours();
@@ -407,7 +427,7 @@ extern "C" __declspec(dllexport) BOOL WINAPI NewReadFile(HANDLE hFile, LPVOID lp
     info["lpOverlapped"] = int(lpOverlapped);
     info["return"] = result;
     if (result == FALSE) {
-        info["Error"] = GetLastError();
+        info["errorCode"] = GetLastError();
     }
     SendPipe("File", info);
     EnableDetours();
@@ -444,6 +464,9 @@ extern "C" __declspec(dllexport) BOOL WINAPI NewCloseHandle(HANDLE hObject) {
     info["Operation"] = "CloseHandle";
     info["hFile"] = int(hObject);
     info["return"] = result;
+    if (result == 0) {
+        info["errorCode"] = GetLastError();
+    }
     SendPipe("File", info);
     EnableDetours();
     return result;
@@ -474,7 +497,12 @@ extern "C" __declspec(dllexport) LSTATUS WINAPI NewRegCreateKeyExA(HKEY hKey, LP
         info["phkResult"] = int(*phkResult);
     else
         info["phkResult"] = NULL;
-    info["lpdwDisposition"] = int(lpdwDisposition);
+    if (lpdwDisposition == NULL) {
+        info["lpdwDisposition"] = 0;
+    }
+    else {
+        info["lpdwDisposition"] = *lpdwDisposition;
+    } 
     info["status"] = status;
     SendPipe("Regedit", info);
     EnableDetours();
@@ -524,11 +552,16 @@ extern "C" __declspec(dllexport) LSTATUS WINAPI NewRegQueryValueExA(HKEY hKey, L
     info["lpValueName"] = string(lpValueName);
     info["lpReserved"] = int(lpReserved);
     info["lpType"] = int(lpType);
+    if (lpType != NULL){
+        info["lpTypeValue"] = *lpType;
+    }
     info["lpData"] = int(lpData);
-    if(lpcbData == NULL)
+    if(lpcbData == NULL || lpData == NULL)
         info["lpcbData"] = 0;
-    else
-        info["lpcbData"] = int(*lpcbData);
+    else {
+        info["lpcbData"] = *lpcbData;
+        info["lpDataValue"] = base64_encode((const unsigned char*)lpData, (unsigned int)*lpcbData);
+    }
     info["status"] = status;
     SendPipe("Regedit", info);
     EnableDetours();
@@ -545,11 +578,13 @@ extern "C" __declspec(dllexport) LSTATUS WINAPI NewRegSetValueExA(HKEY hKey, LPC
     info["lpValueName"] = string(lpValueName);
     info["Reserved"] = Reserved;
     info["dwType"] = dwType;
-    if (lpData == NULL)
-        info["lpData"] = 0;
-    else
-        info["lpData"] = int(*lpData);
-    info["cbData"] = cbData;
+    info["lpData"] = int(lpData);
+    info["cbData"] = 0;
+    if(cbData != 0 && lpData != NULL)
+    {
+        info["cbData"] = cbData;
+        info["lpDataValue"] = base64_encode((const unsigned char*)lpData, cbData);
+    }
     info["status"] = status;
     SendPipe("Regedit", info);
     EnableDetours();
@@ -568,6 +603,9 @@ extern "C" __declspec(dllexport) SOCKET WSAAPI Newsocket(int af, int type, int p
     info["type"] = type;
     info["protocol"] = protocol;
     info["socket"] = socket;
+    if (socket == INVALID_SOCKET) {
+        info["errorCode"] = WSAGetLastError();
+    }
     SendPipe("Socket", info);
     EnableDetours();
     return socket;
@@ -579,11 +617,16 @@ extern "C" __declspec(dllexport) int WSAAPI NewWSAStartup(WORD wVersionRequired,
     DisableDetours();
     json info;
     info["Operation"] = "WSAStartup";
+    info["wVersionRequired"] = wVersionRequired;
     info["wVersionRequiredPrimary"] = LOBYTE(wVersionRequired);
     info["wVersionRequiredSecondary"] = HIBYTE(wVersionRequired);
     info["lpWSAData"] = int(lpWSAData);
-    info["wVersionPrimary"] = LOBYTE(lpWSAData->wVersion);
-    info["wVersionSecondary"] = HIBYTE(lpWSAData->wVersion);
+    if (lpWSAData != NULL && status != WSAEFAULT) {
+        info["lpWSADataValue"] = base64_encode((const unsigned char*)lpWSAData, sizeof(WSADATA));
+        info["wVersion"] = lpWSAData->wVersion;
+        info["wVersionPrimary"] = LOBYTE(lpWSAData->wVersion);
+        info["wVersionSecondary"] = HIBYTE(lpWSAData->wVersion);
+    }
     info["status"] = status;
     SendPipe("Socket", info);
     EnableDetours();
@@ -597,15 +640,21 @@ extern "C" __declspec(dllexport) int WSAAPI Newconnect(SOCKET s, const sockaddr 
     json info;
     info["Operation"] = "connect";
     info["s"] = s;
-    auto sockaddr = (SOCKADDR*)name;
-    info["sa_family"] = sockaddr->sa_family;
-    if (sockaddr->sa_family == AF_INET) {
-        info["sin_port"] = ntohs(((SOCKADDR_IN*)sockaddr)->sin_port);
-        info["sin_addr"] = ntohl(((SOCKADDR_IN*)sockaddr)->sin_addr.s_addr);
-    }
-    info["sockaddr"] = int(sockaddr);
+    info["sockaddr"] = int(name);
     info["namelen"] = namelen;
+    if (name != NULL and status != WSAEFAULT) {
+        info["nameValue"] = base64_encode((const unsigned char*)name, namelen);
+        auto sockaddr = (SOCKADDR*)name;
+        info["sa_family"] = sockaddr->sa_family;
+        if (sockaddr->sa_family == AF_INET) {
+            info["sin_port"] = ntohs(((SOCKADDR_IN*)sockaddr)->sin_port);
+            info["sin_addr"] = ntohl(((SOCKADDR_IN*)sockaddr)->sin_addr.s_addr);
+        }
+    }
     info["status"] = status;
+    if (status == SOCKET_ERROR) {
+        info["errorCode"] = WSAGetLastError();
+    }
     SendPipe("Socket", info);
     EnableDetours();
     return status;
@@ -619,12 +668,15 @@ extern "C" __declspec(dllexport) int WSAAPI Newrecv(SOCKET s, char* buf, int len
     info["Operation"] = "recv";
     info["s"] = s;
     info["buf"] = int(buf);
-    if (buf != NULL) {
-        info["bufValue"] = base64_encode((const unsigned char*)buf, len);
+    if (buf != NULL && status > 0) {
+        info["bufValue"] = base64_encode((const unsigned char*)buf, status);
     }
     info["len"] = len;
     info["flags"] = flags;
     info["status"] = status;
+    if (status == SOCKET_ERROR) {
+        info["errorCode"] = WSAGetLastError();
+    }   
     SendPipe("Socket", info);
     EnableDetours();
     return status;
@@ -638,12 +690,15 @@ extern "C" __declspec(dllexport) int WSAAPI Newsend(SOCKET s, const char* buf, i
     info["Operation"] = "send";
     info["s"] = s;
     info["buf"] = int(buf);
-    if (buf != NULL) {
-        info["bufValue"] = base64_encode((const unsigned char*)buf, len);
+    if (buf != NULL && status > 0) {
+        info["bufValue"] = base64_encode((const unsigned char*)buf, status);
     }
     info["len"] = len;
     info["flags"] = flags;
     info["status"] = status;
+    if (status == SOCKET_ERROR) {
+        info["errorCode"] = WSAGetLastError();
+    }
     SendPipe("Socket", info);
     EnableDetours();
     return status;
@@ -657,6 +712,9 @@ extern "C" __declspec(dllexport) int WSAAPI Newclosesocket(SOCKET s) {
     info["Operation"] = "closesocket";
     info["s"] = s;
     info["status"] = status;
+    if (status == SOCKET_ERROR) {
+        info["errorCode"] = WSAGetLastError();
+    }
     SendPipe("Socket", info);
     EnableDetours();
     return status;
@@ -669,6 +727,9 @@ extern "C" __declspec(dllexport) int WSAAPI NewWSACleanup() {
     json info;
     info["Operation"] = "WSACleanup";
     info["status"] = status;
+    if (status == SOCKET_ERROR) {
+        info["errorCode"] = WSAGetLastError();
+    }
     SendPipe("Socket", info);
     EnableDetours();
     return status;
@@ -714,6 +775,7 @@ BOOL APIENTRY DllMain( HMODULE hModule,
         }
 
         info["Operation"] = "StartTrace";
+        info["DefaultHeap"] = int(GetProcessHeap());
         if (_stat(currentFileName.c_str(), &buf) == 0) {
             info["st_size"] = buf.st_size;
             info["st_atime"] = buf.st_atime;
@@ -724,7 +786,7 @@ BOOL APIENTRY DllMain( HMODULE hModule,
 
         EnableDetours();
 
-        DetourTransactionCommit();
+        //DetourTransactionCommit();
         break;
     case DLL_THREAD_ATTACH:
     case DLL_THREAD_DETACH:
@@ -734,7 +796,7 @@ BOOL APIENTRY DllMain( HMODULE hModule,
         infoEnd["Operation"] = "StopTrace";
         SendPipe("HookFunc", infoEnd);
 
-        DetourTransactionCommit();
+        //DetourTransactionCommit();
         CloseHandle(hPipe);
         break;
     }

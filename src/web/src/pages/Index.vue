@@ -146,6 +146,7 @@
 
                   <q-item-section side class="column q-gutter-xs">
                     <q-item-label caption> [#{{ event.id }}] {{ getTime(event.time) }}</q-item-label>
+                    <q-item-label caption> {{ getInterVal(event.time) }}</q-item-label>
                     <q-badge v-if="event['warningLevel'] > 0" :color="convertWarningLevel(event['warningLevel'])"
                              :label="'警告: '+ event.warnings.length"/>
                     <q-badge v-else color="info" label="未见异常"/>
@@ -188,9 +189,11 @@
                                   style="word-wrap: break-word;word-break: normal;">{{ item }}
                     </q-item-label>
                   </q-item-section>
-                  <q-item-section side>
+                  <q-item-section side class="column q-gutter-xs items-end content-end">
                     <q-badge v-if="key === 'return' " label="返回值" color="primary"></q-badge>
+                    <q-badge v-else-if="key === 'errorCode'" label="错误值" color="negative"></q-badge>
                     <q-badge v-else label="参数" color="info"></q-badge>
+                    <q-badge v-if="val.buffer" label="点击解析" color="positive"></q-badge>
                   </q-item-section>
                 </q-item>
 
@@ -250,6 +253,7 @@ export default defineComponent({
       runtimeInfo: {
         pid: 0,
         threadID: 0,
+        startTime: 0,
       },
       socketConnect: false,
       base64Windows: false,
@@ -402,6 +406,7 @@ export default defineComponent({
               runtimeInfo: {
                 pid: 0,
                 threadID: 0,
+                startTime : new Date().getTime()
               },
               infoTraceCount: {
                 "HookFunc": 0,
@@ -445,7 +450,19 @@ export default defineComponent({
       return 'info'
     },
     getTime(time) {
-      return date.formatDate(time, 'YYYY/MM/DD HH:mm:ss.SSS')
+      return date.formatDate(time, 'YY/MM/DD HH:mm:ss.SSS')
+    },
+    getInterVal(time){
+      let interval = time - this.runtimeInfo.startTime
+      let milStr = ""
+      if(interval % 1000 < 10){
+        milStr = '00' + interval % 1000
+      }else if(interval % 1000 < 100){
+        milStr = '0' + interval % 1000
+      }else{
+        milStr = interval % 1000
+      }
+      return Math.floor(interval/1000) + '.' + milStr + '秒'
     },
     targetClick(trace) {
       if (this.filterSwitch['Main']) {

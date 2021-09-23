@@ -141,7 +141,7 @@ module.exports = configure(function (ctx) {
       },
 
       manifest: {
-        name: `Quasar App`,
+        name: `异常行为监测系统`,
         short_name: `Quasar App`,
         description: `A Quasar Framework app`,
         display: 'standalone',

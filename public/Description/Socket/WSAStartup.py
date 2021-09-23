@@ -1,4 +1,4 @@
-from utils import to32Hex, convertResult
+from utils import to32Hex, convertResult, formatErrorCode
 
 
 def join(primary, secondary):
@@ -10,20 +10,25 @@ def description(event, socketList: dict):
     event["eventDescription"] = {
         "wVersionRequired": {
             "description": "请求的套接字版本号",
-            "value": join(info["wVersionRequiredPrimary"], info["wVersionRequiredSecondary"])
+            "value": [to32Hex(info["wVersionRequired"]), join(info["wVersionRequiredPrimary"],
+                                                              info["wVersionRequiredSecondary"])]
         },
         "wVersion": {
             "description": "返回的套接字版本号",
-            "value": join(info["wVersionPrimary"], info["wVersionSecondary"])
+            "value": "[未返回]"
         },
         "lpWSAData": {
             "description": "套接字信息结构地址",
-            "value": to32Hex(info["lpWSAData"])
+            "value": to32Hex(info["lpWSAData"], "NULL")
         },
         "return": {
             "description": "执行结果",
-            "value": convertResult(info["status"], reverse=True)
+            "value": formatErrorCode(info["status"])
         }
     }
+    if info["lpWSAData"] != 0 and info["status"] != 10014:
+        event["eventDescription"]["wVersion"]["value"] = [to32Hex(info["wVersion"]), join(info["wVersionPrimary"],
+                                                                                          info["wVersionSecondary"])]
+        event["eventDescription"]["lpWSAData"]["buffer"] = info["lpWSADataValue"]
     event["document"] = "https://docs.microsoft.com/en-us/windows/win32/api/winsock/nf-winsock-wsastartup"
     event["description"] = "初始化套接字"

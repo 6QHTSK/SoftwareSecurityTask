@@ -1,4 +1,4 @@
-from utils import convertDict, convertEqual
+from utils import convertDict, convertEqual, formatErrorCode
 
 
 def description(event, socketList: dict):
@@ -21,5 +21,12 @@ def description(event, socketList: dict):
             "value": convertEqual(info["socket"], convertDict["SocketInfo"])
         }
     }
+    if "errorCode" in info:
+        event["eventDescription"].update({
+            "errorCode": {
+                "description": "错误代码",
+                "value": formatErrorCode(info["errorCode"])
+            }
+        })
     event["document"] = "https://docs.microsoft.com/en-us/windows/win32/api/winsock2/nf-winsock2-socket"
     event["description"] = "新建了一个套接字"

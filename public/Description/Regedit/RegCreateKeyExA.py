@@ -1,4 +1,4 @@
-from utils import convertEqual, convertOr, convertDict, convertResult, to32Hex
+from utils import convertEqual, convertOr, convertDict, to32Hex, formatErrorCode
 
 
 def description(event):
@@ -30,22 +30,20 @@ def description(event):
         },
         "lpSecurityAttributes": {
             "description": "安全参数结构指针",
-            "value": to32Hex(info["lpSecurityAttributes"])
+            "value": to32Hex(info["lpSecurityAttributes"], "NULL")
         },
         "phkResult": {
             "description": "返回操作句柄",
             "value": to32Hex(info["phkResult"])
         },
         "lpdwDisposition": {
-            "description": "操作结果情况",
+            "description": "处置信息",
             "value": convertEqual(info["lpdwDisposition"], convertDict["RegeditDisposition"])
         },
         "return": {
             "description": "执行结果 [系统错误代码]",
-            "value": convertResult(info["status"], reverse=True)
+            "value": formatErrorCode(info["status"])
         }
     }
     event["document"] = "https://docs.microsoft.com/en-us/windows/win32/api/winreg/nf-winreg-regcreatekeyexa"
-    event["description"] = "{}地创建/打开了注册表键值".format(
-        event["eventDescription"]["return"]["value"]
-    )
+    event["description"] = "创建/打开了注册表键值"

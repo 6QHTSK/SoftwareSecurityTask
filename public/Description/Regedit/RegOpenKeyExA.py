@@ -1,7 +1,7 @@
-from utils import convertEqual,convertResult
+from utils import convertEqual, convertDict, convertOr, to32Hex
+from utils import formatErrorCode
 
 
-from utils import convertEqual,convertDict,convertOr,to32Hex
 def description(event):
     info = event["event"]
     event["eventDescription"] = {
@@ -9,7 +9,7 @@ def description(event):
             "description": "主键名称",
             "value": convertEqual(info["hKey"], convertDict["RegeditHkey"])
         },
-        "ulOptions":{
+        "ulOptions": {
             "description": "创建参数",
             "value": convertOr(info["ulOptions"], convertDict["RegeditOptions"])
         },
@@ -23,11 +23,10 @@ def description(event):
         },
         "return": {
             "description": "执行结果 [系统错误代码]",
-            "value": convertResult(info["status"],True)
+            "value": formatErrorCode(info["status"])
         }
     }
     event["document"] = "https://docs.microsoft.com/en-us/windows/win32/api/winreg/nf-winreg-regopenkeyexa"
-    event["description"] = "{}地打开了[{}]注册表键值".format(
-        event["eventDescription"]["return"]["value"],
+    event["description"] = "打开了[{}]注册表键值".format(
         event["eventDescription"]["hKey"]["value"][-1]
     )

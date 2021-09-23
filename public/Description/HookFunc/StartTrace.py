@@ -2,7 +2,7 @@ from utils import toMemorySize
 import time
 
 
-def converTime(timeStamp):
+def convertTime(timeStamp):
     timeArray = time.localtime(timeStamp)
     return time.strftime("%Y/%m/%d %H:%M:%S", timeArray)
 
@@ -28,15 +28,15 @@ def description(event):
             },
             "st_atime": {
                 "description": "上次访问时间",
-                "value": converTime(info["st_atime"])
+                "value": convertTime(info["st_atime"])
             },
             "st_mtime": {
                 "description": "上次修改时间",
-                "value": converTime(info["st_mtime"])
+                "value": convertTime(info["st_mtime"])
             },
             "st_ctime": {
                 "description": "创建时间",
-                "value": converTime(info["st_ctime"])
+                "value": convertTime(info["st_ctime"])
             }
         })
     event['description'] = "开始追踪目标程序行为"

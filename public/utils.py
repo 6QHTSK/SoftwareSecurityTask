@@ -1,3 +1,5 @@
+import win32api
+
 convertDict = {
     "MessageBoxType": {
         0x00000002: "MB_ABORTRETRYIGNORE [中止/重试/忽略]",
@@ -73,6 +75,7 @@ convertDict = {
         0x0000: "NULL [继承父键]"
     },
     "RegeditDisposition": {
+        0x00000000: "无处置信息",
         0x00000001: "REG_CREATED_NEW_KEY [键不存在并已创建]",
         0x00000002: "REG_OPENED_EXISTING_KEY [键存在并打开]"
     },
@@ -85,7 +88,7 @@ convertDict = {
         5: "REG_DWORD_BIG_ENDIAN [32位大端存储]",
         6: "REG_LINK [含符号字符串]",
         7: "REG_MULTI_SZ [多个字符串]",
-        11: "REG_QWORD [64位数字]"
+        11: "REG_QWORD [64位数字]",
     },
     "SocketAf": {
         0: "AF_UNSPEC [地址族未指定]",
@@ -184,3 +187,10 @@ def joinSocketAddr(addr, port):
     addr3 = (addr & 0x0000FF00) >> 8
     addr4 = (addr & 0x000000FF)
     return "{}.{}.{}.{}:{}".format(addr1, addr2, addr3, addr4, port)
+
+
+def formatErrorCode(errorCode):
+    errorCode &= 0xffffffff
+    if errorCode == 0:
+        return "[0] 操作成功。"
+    return "[{}] {}".format(errorCode, win32api.FormatMessage(errorCode).strip())
