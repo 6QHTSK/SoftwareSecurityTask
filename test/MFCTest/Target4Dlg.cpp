@@ -80,6 +80,7 @@ BEGIN_MESSAGE_MAP(CTarget4Dlg, CDialogEx)
 	ON_BN_CLICKED(ID_BUTTON6, &CTarget4Dlg::OnBnClickedButton6)
 	ON_BN_CLICKED(IDC_BUTTON7, &CTarget4Dlg::OnBnClickedButton7)
 	ON_BN_CLICKED(IDC_BUTTON8, &CTarget4Dlg::OnBnClickedButton8)
+	ON_BN_CLICKED(IDC_BUTTON9, &CTarget4Dlg::OnBnClickedButton9)
 END_MESSAGE_MAP()
 
 
@@ -364,4 +365,22 @@ void CTarget4Dlg::OnBnClickedButton8()
 	closesocket(s_server);
 	//释放DLL资源
 	WSACleanup();
+}
+
+
+void CTarget4Dlg::OnBnClickedButton9()
+{
+	HANDLE hFile = CreateFileA(
+		"S://test.txt",
+		GENERIC_READ,
+		0,
+		NULL,
+		OPEN_EXISTING,
+		FILE_ATTRIBUTE_NORMAL,
+		NULL
+	);
+	char buf[20];
+	DWORD dw = 0;
+	ReadFile(hFile, buf, 12, &dw, NULL);
+	CloseHandle(hFile);
 }

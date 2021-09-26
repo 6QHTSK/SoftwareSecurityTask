@@ -16,11 +16,11 @@ void main()
 	if (hHeap != NULL) {
 		auto hptest = HeapAlloc(hHeap, HEAP_ZERO_MEMORY, 100);
 		auto hptest2 = HeapAlloc(hHeap, HEAP_ZERO_MEMORY, 100);
-		printf("%p\n", hptest);
+		//printf("%p\n", hptest);
 		HeapFree(hHeap, 0, hptest);
-		printf("%d\n", GetHandleInformation(hHeap, &flags));
-		printf("%d\n", GetLastError());
-		printf("%d\n", HeapValidate(hHeap, 0, NULL));
+		//printf("%d\n", GetHandleInformation(hHeap, &flags));
+		//printf("%d\n", GetLastError());
+		//printf("%d\n", HeapValidate(hHeap, 0, NULL));
 		HeapFree(hHeap, 0, hptest);	// ERROR 103
 		HeapDestroy(hHeap);	// WARNING 113
 		//printf("%d\n", HeapValidate(hHeap, 0, NULL));

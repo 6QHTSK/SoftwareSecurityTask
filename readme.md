@@ -1,16 +1,32 @@
 
 # 软件安全课设
 
-## 当前进度
+已获得2021年度软件安全课程设计作品赛一等奖
 
-- 后端 基本完成
-- 前端 基本完成
-- Dll/注射器 基本完成
-- 最终检查：正在进行中
+## 从源文件简要安装方法
 
-运行方式：以管理员权限（因为要操作注册表）打开public文件夹下public/main.py, 并用浏览器打开前端
+### 注射器、注入dll文件
 
-注意：需要自行下载
+- 下载并编译Detours库，编译使用32位；
+- 下载nlohmann_json_realease库，将上述库链接到src文件夹下
+- 编译dll文件，将编译出的dll文件所在目录地址及其自身绝对地址复制到src/Injector/Injector.cpp文件的26/27行相应处
+- 编译注射器，将编译出的exe文件绝对地址复制到public/main.py 40行处
+
+### 目标文件
+
+- 直接使用Visual Studio编译即可，请记住他们的绝对路径。
+
+### 网页文件
+
+- 查看[src/web/README.md](src/web/README.md)，按照其指示制作
+
+### 运行
+
+- 用管理员权限运行public/main.py，访问[localhost:9013](http://localhost:9013)即可。注意受到浏览器限制，只能复制文件绝对路径到输入框中
+
+## 需要自行下载
 
 - Detours-4.0.1
 - nlohmann_json_release-3.9.1
+
+项目中还使用了base64.cpp and base64.h的内容

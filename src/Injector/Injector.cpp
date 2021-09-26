@@ -25,8 +25,6 @@ int main(int argc, char* argv[])
     WCHAR DirPath[MAX_PATH + 1];
     wcscpy_s(DirPath, MAX_PATH, L"S:\\softwareSecurityTask\\src\\DetoursDll3\\Debug");
     char DLLPath[MAX_PATH + 1] = "S:\\softwareSecurityTask\\src\\DetoursDll3\\Debug\\DetoursDll3.dll";
-    //WCHAR EXE[MAX_PATH + 1] = { 0 };
-    //wcscpy_s(EXE, MAX_PATH, L"S:\\软件安全设计\\Target4\\Debug\\Target4.exe");
 
     if (DetourCreateProcessWithDllEx(EXE, NULL, NULL, NULL, TRUE, CREATE_DEFAULT_ERROR_MODE | CREATE_SUSPENDED, NULL, DirPath, &si, &pi, DLLPath, NULL)) {
         printf("Success Hooked!\n");
