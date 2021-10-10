@@ -208,7 +208,10 @@ void SendPipe(const char* eventID, json &event) {
             req["cwd"] = currentWorkDir;
         }
         auto info = req.dump();
-        OldWriteFile(hPipe, info.c_str(), info.length()+1, &wlen, 0);
+        OldWriteFile(hPipe, info.c_str(), info.length() + 1, &wlen, 0);
+    }
+    else {
+        OldMessageBoxA(NULL, "INVALID_HANDLE", "SendPipe", MB_OK);
     }
 }
 
@@ -761,10 +764,10 @@ BOOL APIENTRY DllMain( HMODULE hModule,
         DetourTransactionBegin();
         DetourUpdateThread(GetCurrentThread());
 
-        bRet = WaitNamedPipe(TEXT("\\\\.\\Pipe\\mypipe"), NMPWAIT_WAIT_FOREVER);
+        bRet = WaitNamedPipe(TEXT("\\\\.\\pipe\\mypipe"), NMPWAIT_WAIT_FOREVER);
         if (bRet) {
             hPipe = CreateFile(
-                TEXT("\\\\.\\Pipe\\mypipe"),
+                TEXT("\\\\.\\pipe\\mypipe"),
                 GENERIC_WRITE,
                 0,
                 NULL,
@@ -772,6 +775,19 @@ BOOL APIENTRY DllMain( HMODULE hModule,
                 FILE_ATTRIBUTE_NORMAL,
                 NULL
             );
+            if (hPipe == INVALID_HANDLE_VALUE) {
+                DWORD errorCode = GetLastError();
+                char buffer[2048];
+                sprintf_s(buffer, "%d", errorCode);
+                OldMessageBoxA(NULL, buffer, "Failed to Start Pipe!", MB_OK);
+            }
+        }
+        else {
+            //printf("Failed To Start Pipe!");
+            DWORD errorCode = GetLastError();
+            char buffer[2048];
+            sprintf_s(buffer,"%d", errorCode);
+            OldMessageBoxA(NULL, buffer, "Failed to Start Pipe!", MB_OK);
         }
 
         info["Operation"] = "StartTrace";

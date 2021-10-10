@@ -10,7 +10,7 @@ from flask_cors import CORS, cross_origin
 
 app = Flask(__name__, static_url_path='/', static_folder='..\\src\\web\\dist\\spa',template_folder='..\\src\\web\\dist\\spa')
 CORS(app)
-socketio = SocketIO(app, cors_allowed_origins='*')
+socketio = SocketIO(app, cors_allowed_origins='*',async_mode="threading")
 executor = ThreadPoolExecutor(2)
 targetProcess = None
 targetThread = None
@@ -33,11 +33,11 @@ def index():
 def Trace(command):
     global targetProcess, targetThread, socketio
     path = request.args.get(
-        'path', 'S:\\softwareSecurityTask\\test\\Target4\\Debug\\Target4.exe')
+        'path', '')
     if command == "start":
         stopTarget()
         if os.path.exists(path):
-            targetProcess = subprocess.Popen(["S:\\softwareSecurityTask\\src\\Injector\\Debug\\Injector.exe",
+            targetProcess = subprocess.Popen(["H:\\softwareSecurityTask\\src\\Injector\\Debug\\Injector.exe",
                                               path], shell=True)
             executor.submit(pipeThread.pipeThread, socketio)
             return {"result": True}

@@ -18,7 +18,7 @@ def getPid():
 def pipeThread(sio):
     global pid, eventUID
     pid = 0
-    PIPE_NAME = r'\\.\pipe\mypipe'
+    PIPE_NAME = r'\\.\Pipe\mypipe'
     PIPE_BUFFER_SIZE = 65535
     named_pipe = win32pipe.CreateNamedPipe(PIPE_NAME,
                                            win32pipe.PIPE_ACCESS_DUPLEX,

@@ -23,8 +23,10 @@ int main(int argc, char* argv[])
     ZeroMemory(&pi, sizeof(PROCESS_INFORMATION));
     si.cb = sizeof(STARTUPINFO);
     WCHAR DirPath[MAX_PATH + 1];
-    wcscpy_s(DirPath, MAX_PATH, L"S:\\softwareSecurityTask\\src\\DetoursDll3\\Debug");
-    char DLLPath[MAX_PATH + 1] = "S:\\softwareSecurityTask\\src\\DetoursDll3\\Debug\\DetoursDll3.dll";
+    wcscpy_s(DirPath, MAX_PATH, L"H:\\softwareSecurityTask\\src\\DetoursDll3\\Debug");
+    GetCurrentDirectory(MAX_PATH, DirPath);
+    char DLLPath[MAX_PATH + 1] = "H:\\softwareSecurityTask\\src\\DetoursDll3\\Debug\\DetoursDll3.dll";
+    //char DLLPath[MAX_PATH + 1] = "DetoursDll3.dll";
 
     if (DetourCreateProcessWithDllEx(EXE, NULL, NULL, NULL, TRUE, CREATE_DEFAULT_ERROR_MODE | CREATE_SUSPENDED, NULL, DirPath, &si, &pi, DLLPath, NULL)) {
         printf("Success Hooked!\n");
